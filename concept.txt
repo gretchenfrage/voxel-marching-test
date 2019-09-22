@@ -39,10 +39,6 @@ outer_loop: loop:
 
         ASSERT(distances[a] >= 0.0)     <-- as in, this should always be true
 
-        // then, compute the intersection point with this plane
-        // in the edge case, we don't care what value we set, as long as it's not polluted
-        intersections[a] = ingress + (direction * distances[a])
-
     // sort plane intersections by distance.
     //
     // we compute an ordered sequence of length 1 <= n <= 3, corresponding to

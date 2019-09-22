@@ -4,7 +4,7 @@ input vec3i voxel
 input vec3f ingress          <-- satisfies: 0 <= n <= 1 for each component
                                  TODO satisfies: at least one component equals 0 or 1
 
-'outer loop:
+'outer: loop:
     // sign of the direction components determine which planes they will intersect
     // with.
     //
@@ -81,7 +81,7 @@ input vec3f ingress          <-- satisfies: 0 <= n <= 1 for each component
                         distances[a] > distances[c]
                     )
 
-        // the the edge-case where a distance is zero, it will be sorted as the first
+        // in the edge case where a distance is zero, it will be sorted as the first
         // element in the step sequence. however, since it will leave the seq_distance
         // value equal to 0.0, our computations will consider that index a non-present
         // step in the sequence.
@@ -98,16 +98,66 @@ input vec3f ingress          <-- satisfies: 0 <= n <= 1 for each component
         //
         // since this iteration is inserting the intersection with the plane on axis
         // a, it can only affect component a of the voxel delta. so we can use this
-        // computation instead
+        // computation instead.
         seq_voxel_delta[index][a] += sign(direction[a])
 
         // only on the edge case will we not increment seq_voxel_delta[index], in which
         // case the shader should not care about the value of seq_voxel_delta[index],
-        // since seq_distance[index] == 0
+        // since seq_distance[index] == 0.
         ASSERT((direction[a] == 0) == (distances[a] == 0))
 
+    // now that we have ordered the sequence, we will map seq_distance to seq_ingress.
+    //
+    // we need to do this ahead of time, because calculating a subsequent ingress is a
+    // function of the current ingress, but we will overwrite the current ingress
+    // variable as we loop through the sequence.
+    //
+    // we calculate the subsequent ingress points from corresponding plane collision
+    // distances. since the plane collision distance is stored in current voxel-space,
+    // the subsequent ingress points we calculate will be in current voxel-space.
+    // however, we want them to be in their own voxel-space. to achieve this, we keep
+    // an accumulator of voxel space.
 
-    
+    vec3f[3] seq_ingress
+    vec3i voxel_delta_accumulator = <0, 0, 0>
+
+    for i in [0, 1, 2]:             <-- unroll loop
+        // at this point, we are relying on the behavior that seq_voxel_delta[i]==0
+        // when that sequence step is non-present
+        voxel_delta_accumulator += seq_voxel_delta[i]
+
+        seq_ingress[i] = (
+                             // calculate the sequence ingress in current voxel-space
+                             ingress + (direction * seq_distance[i])
+                         ) - (
+                             // then adjust it into its own voxel-space
+                             voxel_delta_accumulator
+                         )
+    // (note: voxel_delta_accumulator will no longer be used after this point)
+
+    // finally, we can loop through the steps and run whatever intersection
+    // code we want
+
+    'inner: for i in [0, 1, 2]:         <-- unroll loop
+
+        // skip this loop iteration if the step doesn't exist.
+        //
+        // this is one of the few branches in this algorithm. in random conditions,
+        // this branch will likely skip far more often than it will hit, which
+        // hopefully can allow a branch predictor to compensate for the cost.
+        if (seq_distance[i] == 0.0):
+            continue 'inner
+
+        // here, we
+        voxel
+
+        // this part is sort of hand-wavey, but generally involves putting your
+        // use-case specific ray tracing code here, which may allow you to optimize
+        // out some branches.
+        #USER_CODE(
+
+
+
 
 
 

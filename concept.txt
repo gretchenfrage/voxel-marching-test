@@ -52,7 +52,7 @@ outer_loop: loop:
     //
     // this sequence may be shorter than 3 steps due to the ray-intersecting-edge/corner
     // edge case and/or the direction[a]==0 edge case. to represent this, a step will be
-    // considered non-present if its value in the distance arrays is equal to zero.
+    // considered non-present if its value in the distance array is equal to zero.
     //
     // one can intuit that there is no possible situation where the sequence would
     // have a length of zero.
@@ -91,14 +91,13 @@ outer_loop: loop:
         // however, planes has component values in the set { 0, 1 }
         // and we want a component increment in the set { -1, 1 }
         //
-        // since this iteration is inserting the intersection with the plane on axis
-        // a, it can only affect component a of the voxel delta. so we can use this
+        // since this iteration is inserting the intersection with the plane normal to
+        // axis a, it can only affect component a of the voxel delta. so we can use this
         // computation instead.
         seq_voxel_delta[index][a] += sign(direction[a])
 
-        // only on the edge case will we not increment seq_voxel_delta[index], in which
-        // case the shader should not care about the value of seq_voxel_delta[index],
-        // since seq_distance[index] == 0.
+        // only on the edge case where seq_distance[index]==0 will we not increment
+        // seq_voxel_delta[index].
         ASSERT((direction[a] == 0) == (distances[a] == 0))
 
     // now that we have ordered the sequence, we will map seq_distance to seq_ingress.

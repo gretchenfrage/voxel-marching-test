@@ -1,0 +1,52 @@
+
+input vec3f direction
+input vec3i voxel
+input vec3f ingress
+outer_loop: loop:
+    vec3f planes = ceil(direction)
+    float[3] distances
+    for a in [0, 1, 2]:
+        distances[a] = (
+                           (
+                               planes[a] - ingress[a]
+                           ) / (
+                               direction[a] + int(direction[a] == 0.0)
+                           )
+                       ) * (
+                           int(direction[a] != 0.0)
+                       )
+        ASSERT(distances[a] >= 0.0)
+    float[3] seq_distance = [0.0, 0.0, 0.0]
+    vec3i[3] seq_voxel_delta = [<0, 0, 0>, <0, 0, 0>, <0, 0, 0>]
+    for (a, b, c) in [(0, 1, 2), (1, 2, 0), (2, 0, 1)]:
+        int index = int(
+                        distances[a] > distances[b]
+                    ) + int(
+                        distances[a] > distances[c]
+                    )
+        seq_distance[index] = distances[a]
+        seq_voxel_delta[index][a] += sign(direction[a])
+        ASSERT((direction[a] == 0) == (distances[a] == 0))
+    vec3f[3] seq_ingress
+    vec3i voxel_delta_accumulator = <0, 0, 0>
+    for i in [0, 1, 2]:
+        voxel_delta_accumulator += seq_voxel_delta[i]
+        seq_ingress[i] = (
+                             ingress + (direction * seq_distance[i])
+                         ) - (
+                             voxel_delta_accumulator
+                         )
+    inner_loop: for i in [0, 1, 2]:
+        if (seq_distance[i] == 0.0):
+            continue inner_loop
+        voxel += seq_voxel_delta[i]
+        ingress = seq_ingress[i]
+        #USER_CODE(
+            voxel=&voxel,
+            ingress=&ingress,
+            direction=&mut direction,
+        )
+        #IF USER CODE DOES NOT WANT TO RAYTRACE ANY MORE:
+            break outer_loop
+        #IF USER CODE CHANGED THE DIRECTION:
+            break inner_loop

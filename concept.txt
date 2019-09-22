@@ -3,7 +3,7 @@ input vec3f direction        <-- satisfies: normalized
 input vec3i voxel
 input vec3f ingress          <-- satisfies: 0 <= n <= 1 for each component
 
-'outer_loop: loop:
+outer_loop: loop:
     // sign of the direction components determine which planes they will intersect
     // with.
     //
@@ -137,14 +137,14 @@ input vec3f ingress          <-- satisfies: 0 <= n <= 1 for each component
     // finally, we can loop through the steps and run whatever intersection
     // code we want
 
-    'inner_loop: for i in [0, 1, 2]:         <-- unroll loop
+    inner_loop: for i in [0, 1, 2]:         <-- unroll loop
         // skip this loop iteration if the step doesn't exist.
         //
         // this is one of the few branches in this algorithm. in random conditions,
         // this branch will likely skip far more often than it will hit, which
         // hopefully can allow a branch predictor to compensate for some of the cost.
         if (seq_distance[i] == 0.0):
-            continue 'inner
+            continue inner_loop
 
         // change relevant variables
         voxel += seq_voxel_delta[i]
@@ -166,10 +166,11 @@ input vec3f ingress          <-- satisfies: 0 <= n <= 1 for each component
         #IF USER CODE DOES NOT WANT TO RAYTRACE ANY MORE:
             // we can't raytrace forever, but the user code can determine the termination
             // condition
-            break 'outer_loop
+            break outer_loop
 
         #IF USER CODE CHANGED THE DIRECTION:
             // a change in direction invalidates the subsequent computations of our
             // inner sequence, so we must skip back to the outer loop so that those
             // can be computer freshly
-            break 'inner_loop
+            break inner_loop
+

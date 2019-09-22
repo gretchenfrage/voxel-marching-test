@@ -2,9 +2,8 @@
 input vec3f direction        <-- satisfies: normalized
 input vec3i voxel
 input vec3f ingress          <-- satisfies: 0 <= n <= 1 for each component
-                                 TODO satisfies: at least one component equals 0 or 1
 
-'outer: loop:
+'outer_loop: loop:
     // sign of the direction components determine which planes they will intersect
     // with.
     //
@@ -138,32 +137,39 @@ input vec3f ingress          <-- satisfies: 0 <= n <= 1 for each component
     // finally, we can loop through the steps and run whatever intersection
     // code we want
 
-    'inner: for i in [0, 1, 2]:         <-- unroll loop
-
+    'inner_loop: for i in [0, 1, 2]:         <-- unroll loop
         // skip this loop iteration if the step doesn't exist.
         //
         // this is one of the few branches in this algorithm. in random conditions,
         // this branch will likely skip far more often than it will hit, which
-        // hopefully can allow a branch predictor to compensate for the cost.
+        // hopefully can allow a branch predictor to compensate for some of the cost.
         if (seq_distance[i] == 0.0):
             continue 'inner
 
-        // here, we
-        voxel
+        // change relevant variables
+        voxel += seq_voxel_delta[i]
+        ingress = seq_ingress[i]        <-- although not required in program input, once
+                                            ingress has been reassigned at least once,
+                                            it will forevermore satisfy the property:
+                                            at least one component equals 0 or 1
 
-        // this part is sort of hand-wavey, but generally involves putting your
+        // this part is sort of hand-wavey, but generally involves inserting your
         // use-case specific ray tracing code here, which may allow you to optimize
         // out some branches.
         #USER_CODE(
+            voxel=&voxel,
+            ingress=&ingress,
+            direction=&mut direction,       <-- the user code may change the direction
+                                                eg. for refraction or reflection
+        )
 
+        #IF USER CODE DOES NOT WANT TO RAYTRACE ANY MORE:
+            // we can't raytrace forever, but the user code can determine the termination
+            // condition
+            break 'outer_loop
 
-
-
-
-
-
-
-
-
-vec3f[3] intersections            <-- ingress locations of subsequent
-                                          intersections, in current voxel-space
+        #IF USER CODE CHANGED THE DIRECTION:
+            // a change in direction invalidates the subsequent computations of our
+            // inner sequence, so we must skip back to the outer loop so that those
+            // can be computer freshly
+            break 'inner_loop

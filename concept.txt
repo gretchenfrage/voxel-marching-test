@@ -1,8 +1,8 @@
 
 input vec3f direction        <-- satisfies: normalized
 input vec3i voxel
-input vec3f ingress          <-- satisfies: at least one component equals 0 or 1
-                                 satisfies: 0 <= n <= 1 for each component
+input vec3f ingress          <-- satisfies: 0 <= n <= 1 for each component
+                                 TODO satisfies: at least one component equals 0 or 1
 
 loop:                        <-- user-defined condition
     // sign of the direction components determine which planes they will intersect
@@ -16,13 +16,12 @@ loop:                        <-- user-defined condition
     float[3] distances                <-- euclidean distance to collision with 3 planes
 
     // plane intersections
-    for (a, b, c) in [(0, 1, 2), (1, 2, 0), (2, 0, 1)]:        <-- unroll loop
-
+    for a in [0, 1, 2]:        <-- unroll loop
         // this is what we want to do:
         //
         // `distances[a] = (planes[a] - ingress[a]) / direction[a]`
         //
-        // but if direction[a] == 0, this would pollute subsequent computations
+        // but if direction[a] == 0.0, this would pollute subsequent computations
 
         // so we use a trick
         distances[a] = (
@@ -32,14 +31,52 @@ loop:                        <-- user-defined condition
                                // if the denominator is 0, change it to 1, to avoid
                                // divide-by-zero, which would pollute the calculation
 
-                               direction[a] + int(direction[a] == 0)
+                               direction[a] + int(direction[a] == 0.0)
                            )
                        ) * (
                            // if the denominator is 0, set distances[a] to 0, to mark
                            // it as a bogus value in a defined-behavior way
 
-                           int(direction[a] != 0)
+                           int(direction[a] != 0.0)
                        )
+
+        ASSERT(distances[a] >= 0.0)     <-- as in, this should always be true
+
+        // then, compute the intersection point with this plane
+        // in the edge case, we don't care what value we set, as long as it's not polluted
+        intersections[a] = ingress + (direction * distances[a])
+
+    // sort plane intersections by distance.
+    //
+    // we compute an ordered sequence of length 1 <= n <= 3, corresponding to
+    // subsequent voxels the ray will pass through. each step in the sequence contains
+    // the ingress point into the voxel, and the voxel coordinate delta.
+    //
+    // if the ray passes through an edge or corner, it will intersect 2 or 3 planes
+    // at the same distance. in the case, we will de-duplicate/merge the two
+    // intersections, by summing their voxel deltas.
+    //
+    // this sequence may be shorter than 3 steps due to the ray-intersecting-edge/corner
+    // edge case and/or the direction[a]==0 edge case. to represent this, the
+
+    //
+
+     if we intersect two planes at the
+    // same distance, this means the ray passes through an edge or corner,
+
+    we perform de-duplication/merging of
+    // intersections with equal distances, since those will occur
+
+    //
+    // we will store two arrays, one of the voxel-coordinate increments,
+
+    float[3] distances_sorted = [0.0, 0.0, 0.0]
+    vec3i[3] voxel_steps_sorted = [<0, 0, 0>, <0, 0, 0>, <0, 0, 0>]
+
+    for (a, b, c) in [(0, 1, 2), (1, 2, 0), (2, 0, 1)]:         <-- unroll loop
+
+
+
 
 
 

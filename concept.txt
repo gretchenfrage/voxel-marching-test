@@ -1,0 +1,49 @@
+
+input vec3f direction        <-- satisfies: normalized
+input vec3i voxel
+input vec3f ingress          <-- satisfies: at least one component equals 0 or 1
+                                 satisfies: 0 <= n <= 1 for each component
+
+loop:                        <-- user-defined condition
+    // sign of the direction components determine which planes they will intersect
+    // with.
+    //
+    // an edge case exists where a direction component is 0. this must be handled.
+    vec3f planes = ceil(direction)    <-- satisfies: each component equals 0 or 1
+
+    vec3f[3] intersections            <-- ingress locations of subsequent
+                                          intersections, in current voxel-space
+    float[3] distances                <-- euclidean distance to collision with 3 planes
+
+    // plane intersections
+    for (a, b, c) in [(0, 1, 2), (1, 2, 0), (2, 0, 1)]:        <-- unroll loop
+
+        // this is what we want to do:
+        //
+        // `distances[a] = (planes[a] - ingress[a]) / direction[a]`
+        //
+        // but if direction[a] == 0, this would pollute subsequent computations
+
+        // so we use a trick
+        distances[a] = (
+                           (
+                               planes[a] - ingress[a]
+                           ) / (
+                               // if the denominator is 0, change it to 1, to avoid
+                               // divide-by-zero, which would pollute the calculation
+
+                               direction[a] + int(direction[a] == 0)
+                           )
+                       ) * (
+                           // if the denominator is 0, set distances[a] to 0, to mark
+                           // it as a bogus value in a defined-behavior way
+
+                           int(direction[a] != 0)
+                       )
+
+
+
+
+
+
+

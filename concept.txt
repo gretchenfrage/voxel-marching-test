@@ -4,19 +4,17 @@ input vec3i voxel
 input vec3f ingress          <-- satisfies: 0 <= n <= 1 for each component
                                  TODO satisfies: at least one component equals 0 or 1
 
-loop:                        <-- user-defined condition
+'outer loop:
     // sign of the direction components determine which planes they will intersect
     // with.
     //
     // an edge case exists where a direction component is 0. this must be handled.
     vec3f planes = ceil(direction)    <-- satisfies: each component equals 0 or 1
 
-    vec3f[3] intersections            <-- ingress locations of subsequent
-                                          intersections, in current voxel-space
     float[3] distances                <-- euclidean distance to collision with 3 planes
 
     // plane intersections
-    for a in [0, 1, 2]:        <-- unroll loop
+    for a in [0, 1, 2]:                     <-- unroll loop
         // this is what we want to do:
         //
         // `distances[a] = (planes[a] - ingress[a]) / direction[a]`
@@ -50,30 +48,66 @@ loop:                        <-- user-defined condition
     //
     // we compute an ordered sequence of length 1 <= n <= 3, corresponding to
     // subsequent voxels the ray will pass through. each step in the sequence contains
-    // the ingress point into the voxel, and the voxel coordinate delta.
+    // the distance to the voxel, and the voxel coordinate delta. from that distance
+    // to the voxel, we can calculate the voxel ingress coordinate.
     //
     // if the ray passes through an edge or corner, it will intersect 2 or 3 planes
     // at the same distance. in the case, we will de-duplicate/merge the two
     // intersections, by summing their voxel deltas.
     //
     // this sequence may be shorter than 3 steps due to the ray-intersecting-edge/corner
-    // edge case and/or the direction[a]==0 edge case. to represent this, the
-
+    // edge case and/or the direction[a]==0 edge case. to represent this, a step will be
+    // considered non-present if its value in the distance arrays is equal to zero.
     //
+    // one can intuit that there is no possible situation where the sequence would
+    // have a length of zero.
 
-     if we intersect two planes at the
-    // same distance, this means the ray passes through an edge or corner,
-
-    we perform de-duplication/merging of
-    // intersections with equal distances, since those will occur
-
-    //
-    // we will store two arrays, one of the voxel-coordinate increments,
-
-    float[3] distances_sorted = [0.0, 0.0, 0.0]
-    vec3i[3] voxel_steps_sorted = [<0, 0, 0>, <0, 0, 0>, <0, 0, 0>]
+    float[3] seq_distance = [0.0, 0.0, 0.0]     <-- by initializing these values to 0.0
+                                                    they will be considered non-present
+                                                    unless initialized
+    vec3i[3] seq_voxel_delta = [<0, 0, 0>, <0, 0, 0>, <0, 0, 0>]
 
     for (a, b, c) in [(0, 1, 2), (1, 2, 0), (2, 0, 1)]:         <-- unroll loop
+        // we essentially perform an insertion sort. we calculate the index to insert
+        // each element, based on the number of other elements it is greater than.
+        // this allows us to perform the sort with no branching.
+        //
+        // by comparing with >, instead of >=, we achieve our desired de-duplication
+        // effect.
+
+        int index = int(
+                        distances[a] > distances[b]
+                    ) + int(
+                        distances[a] > distances[c]
+                    )
+
+        // the the edge-case where a distance is zero, it will be sorted as the first
+        // element in the step sequence. however, since it will leave the seq_distance
+        // value equal to 0.0, our computations will consider that index a non-present
+        // step in the sequence.
+        //
+        // that should take care of that edge-case :)
+        seq_distance[index] = distances[a]
+
+        // for this part, we can almost say:
+        //
+        // `seq_voxel_delta[index] += planes[index]`
+        //
+        // however, planes has component values in the set { 0, 1 }
+        // and we want a component increment in the set { -1, 1 }
+        //
+        // since this iteration is inserting the intersection with the plane on axis
+        // a, it can only affect component a of the voxel delta. so we can use this
+        // computation instead
+        seq_voxel_delta[index][a] += sign(direction[a])
+
+        // only on the edge case will we not increment seq_voxel_delta[index], in which
+        // case the shader should not care about the value of seq_voxel_delta[index],
+        // since seq_distance[index] == 0
+        ASSERT((direction[a] == 0) == (distances[a] == 0))
+
+
+    
 
 
 
@@ -81,6 +115,5 @@ loop:                        <-- user-defined condition
 
 
 
-
-
-
+vec3f[3] intersections            <-- ingress locations of subsequent
+                                          intersections, in current voxel-space
